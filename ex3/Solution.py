@@ -1,14 +1,18 @@
 import os
 import re
 from oxidd.bdd import BDDManager
+import z3
 
 '''
 TO DO LIST:
-
+0.1) implement apply
+0.2) implement formula_to_bdd properly
 1) implement the othe part of the formula
 2) check if it works with a small sample.
 3) complete the exercise
 '''
+
+
 
 def decimal_to_binary(num):
     # Convert the decimal number to binary using bin() and remove the '0b' prefix
@@ -16,7 +20,7 @@ def decimal_to_binary(num):
     # Pad the binary string with leading zeros to ensure it's at least 5 characters long
     return binary.zfill(5)
 
-file_path = "finite-state-automata/bakery.1.c.ba"
+file_path = "ex3/finite-state-automata/bakery.1.c.ba"
 with open(file_path, 'r') as f:
     # Read the content of the file
     file_content = f.read()
@@ -73,7 +77,7 @@ with open(file_path, 'r') as f:
         final_states_raw.append(f"{src} -> {dest}")
 
     # Print the final states list
-    print(final_states_raw)
+    #print(final_states_raw)
 
 def extract_zeros_ones_from_list(input_list):
     def extract_zeros_ones(input_string):
@@ -129,16 +133,36 @@ def flatten_formulas(formula_list):
 
 final_formula = flatten_formulas(final_formulas)
 
-def contains_number(s):
-    # Define the regex pattern for a valid integer (positive or negative)
-    pattern = r'^-?\d+$'
-    return bool(re.match(pattern, s))
 
-def make_bdd(level_function, formula, manager, variables):
+
+def cnf_to_bdd(clauses, num_variables):
+    manager = BDDManager(100_000_000, 1_000_000, 1)
+    # Create a variable for each feature
+    variables = [manager.new_var() for i in range(1, num_variables + 1)]
+
+    bdd_formula = manager.true()
+    for clause in clauses:
+        clause_bdd = manager.false()  # Start with false, since it's an OR clause
+        for literal in clause:
+            var_index = abs(literal) - 1  # Variable index is 1-based in DIMACS
+            if literal > 0:
+                # Positive literal (xi)
+                clause_bdd |= variables[var_index]
+            else:
+                # Negative literal (¬xi)
+                clause_bdd |= ~variables[var_index]
+
+        # AND this clause with the current BDD formula
+        bdd_formula &= clause_bdd
+    
+    return bdd_formula
+
+
+'''def make_bdd(level_function, formula, manager, variables):
     # Recursive function to construct π-BDD from formula
-    if formula == False:
+    if formula is False:
         return manager.false()
-    elif formula == True:
+    elif formula is True:
         return manager.true()
     elif isinstance(formula, int):  # If formula is a literal (e.g., xi)
         var_index = abs(formula) - 1
@@ -151,28 +175,141 @@ def make_bdd(level_function, formula, manager, variables):
     elif formula[0] == 'implies':  # Implication (ψ → ψ')
         left_bdd = make_bdd(level_function, formula[1], manager, variables)
         right_bdd = make_bdd(level_function, formula[2], manager, variables)
-        return ~left_bdd | right_bdd  # Use the equivalence p → q = ¬p ∨ q
+        # Instead of using `~left_bdd | right_bdd`, combine using |=
+        return ~left_bdd | right_bdd
+    
+
+
     elif formula[0] == 'and':  # AND operation (ψ ∧ ψ')
+        result_bdd = manager.true()
+
         left_bdd = make_bdd(level_function, formula[1], manager, variables)
         right_bdd = make_bdd(level_function, formula[2], manager, variables)
-        return left_bdd & right_bdd
+        result_bdd &= left_bdd
+        result_bdd &= right_bdd
+        return result_bdd
     elif formula[0] == 'or':  # OR operation (ψ ∨ ψ')
+        result_bdd = manager.false()  # Start with false, since it's an OR clause
+        
         left_bdd = make_bdd(level_function, formula[1], manager, variables)
         right_bdd = make_bdd(level_function, formula[2], manager, variables)
-        return left_bdd | right_bdd
+        result_bdd |= left_bdd
+        result_bdd |= right_bdd  # Use |= to combine
+        return result_bdd
     else:
         raise ValueError("Unsupported formula format")
+'''
+
+
+import z3
+
+# Define variables
+x = z3.Int('x')
+y = z3.Int('y')
+
+# Create constraints
+c1 = z3.And(x >= 1, x <= 10)
+c2 = z3.And(y >= 1, y <= 10)
+c3 = z3.Distinct(x, y)
+
+# Create a goal and add constraints
+g = z3.Goal()
+g.add(c1, c2, c3)
+
+# List available tactics (optional)
+#print(z3.Tactic.list())
+
+# Apply tseitin-cnf tactic and print result
+t = z3.Tactic('tseitin-cnf')
+print(t(g))
 
 
 
+from oxidd.bdd import BDDManager
+
+def make_bdd(level_func, phi, manager, variables):
+    print(f"Processing formula: {phi}")  # Debug statement
+
+    # Base cases
+    if phi == False:
+        return manager.false()
+    if phi == True:
+        return manager.true()
+
+    # If φ is a variable, return it with its respective 0/1 branches
+    if isinstance(phi, int):
+        var_index = abs(phi) - 1  # Variables are indexed starting from 1
+        if phi > 0:
+            return variables[var_index]  # Positive literal (xi)
+        else:
+            return ~variables[var_index]  # Negative literal (¬xi)
+
+    # Handle negation
+    if isinstance(phi, tuple) and phi[0] == 'not':
+        return ~make_bdd(level_func, phi[1], manager, variables)
+
+    # Handle binary/n-ary operators
+    if isinstance(phi, tuple):
+        op = phi[0]
+        operands = phi[1:]
+
+        if len(operands) > 2:
+            combined_bdd = make_bdd(level_func, (op, operands[0], operands[1]), manager, variables)
+            for i in range(2, len(operands)):
+                combined_bdd = apply(op, combined_bdd, make_bdd(level_func, operands[i], manager, variables))
+            return combined_bdd
+        elif len(operands) == 2:
+            left = make_bdd(level_func, operands[0], manager, variables)
+            right = make_bdd(level_func, operands[1], manager, variables)
+            return apply(op, left, right)
+
+    raise ValueError(f"Unsupported formula structure: {phi}")
+
+# Apply function remains the same
+def apply(op, left_bdd, right_bdd):
+    print(f"Applying operator: {op} to BDDs")  # Debug statement
+    if op == 'and':
+        return left_bdd & right_bdd
+    elif op == 'or':
+        return left_bdd | right_bdd
+    elif op == 'implies':
+        return ~left_bdd | right_bdd
+    else:
+        raise ValueError(f"Unknown operator: {op}")
+
+
+
+
+
+
+
+
+#ussume that if a bdd is less then another it means that same bdd is higher
+def apply(op, bdd1, bdd2):
+    op = 'and'
+    #.node_count() considers also the root nodes and the terminal nodes
+    if bdd1.node_count() == 0 and bdd2.node_count() == 0:
+        #return bdd1 op bdd2 but for now let's say:
+        return bdd1 & bdd2
+    if bdd1.__lt__(bdd2):
+        eps0 = apply(op, bdd1.cofactor_false(), bdd2)
+        eps1 = apply(op, bdd1.cofactor_true(), bdd2)
+        return eps0 & eps1
+    if bdd1.__gt__(bdd2):
+        eps0 = apply(op, bdd1, bdd2.cofactor_false())
+        eps1 = apply(op, bdd1, bdd2.cofactor_true())
+        return eps0 & eps1
+    if ((not bdd1.__lt__(bdd2)) and (not bdd1.__gt__(bdd2))):
+        eps0 = apply(op, bdd1.cofactor_false(), bdd2.cofactor_false())
+        eps1 = apply(op, bdd1.cofactor_true(), bdd2.cofactor_true())
+        return eps0 & eps1
 
 
 
 
 
 # Example usage
-
-level_function = 1
+level_function = None  # No specific level function is needed here
 num_variables = 100
 
 manager = BDDManager(100_000_000, 1_000_000, 1)
@@ -180,153 +317,26 @@ variables = [manager.new_var() for i in range(1, num_variables + 1)]  # Same var
 
 # Constructing the BDD for a propositional formula
 # Example formula in Python structure: ('implies', ('or', 1, -2), ('not', 3))
-formula = ('implies', ('or', 1, -2), ('not', 3))  # This is just an example structure
+formula = ('implies', ('or', 1, -2), -3)  # This is just an example structure
+ts_formuka = ('and',('and', 1, ('or', -1, -2, 3)), ('and', ('or', 1, -3), ('or', 1, 2)), ('and', ('or', -2, 4, -5), ('or', 2, -4)), ('and', ('or', 2, 5), ('or', 3, 6), ('or', -3, -6)))
 
-prova = ('or', ('implies', ('and', 1,2,3), True), ('implies', ('and', 1,2,3), True))
+tested_formula = ('and',('or', 2,3,5), ('or', -3,-5)) #THIS WORKS against all possibilities
 
-bdd = make_bdd(level_function, final_formula, manager, variables)
-
-
-"""
+tested_formula_shape2 = ('and',('or', ('or', 2, 3), 5), ('or', -3,-5)) #THIS WORKS against all possibilities
 
 
-def cnf_to_bdd_with_proper_initialization(clauses, num_variables):
-    manager = BDDManager(100_000_000, 1_000_000, 1)
+f = ('or', ('implies', ('and', -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18, -19, -20), ('implies', ('and', -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18, -19, -20), True)), ('implies', ('and', -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18, -19, -20), ('implies', ('and', -1, -2, -3, -4, -5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17, -18, -19, -20), True)))
 
-    # Create a variable for each feature
-    variables = [manager.new_var() for i in range(1, num_variables + 1)]
-
-    bdd_formula = manager.true()
-
-    # Track variables that have been set to true or false
-    initialized_variables = set()
-
-    for clause in clauses:
-        clause_bdd = manager.false()  # Start with false since it's an OR clause
-
-        # Check the first literal of the clause
-        first_literal = clause[0]
-        var_index = abs(first_literal) - 1  # Variable index is 1-based in DIMACS
-
-        # If the variable hasn't been initialized, set it to True
-        if var_index not in initialized_variables:
-            if first_literal > 0:
-                bdd_formula &= variables[var_index]  # Set positive literal to True
-            else:
-                bdd_formula &= ~variables[var_index]  # Set negative literal to True
-            initialized_variables.add(var_index)
-
-        # Process the rest of the clause
-        for literal in clause:
-            var_index = abs(literal) - 1  # Variable index is 1-based in DIMACS
-            if literal > 0:
-                clause_bdd |= variables[var_index]
-            else:
-                clause_bdd |= ~variables[var_index]
-
-        # AND this clause with the current BDD formula
-        bdd_formula &= clause_bdd
-
-    return bdd_formula
-
-def cnf_to_bdd_with_initialization(clauses, num_variables):
-    manager = BDDManager(100_000_000, 1_000_000, 1)
-
-    # Create a variable for each feature
-    variables = [manager.new_var() for i in range(1, num_variables + 1)]
-
-    bdd_formula = manager.true()
-
-    # Set to track variables that have been set to True or False
-    initialized_variables = set()
-
-    for clause in clauses:
-        clause_bdd = manager.false()  # Start with false, since it's an OR clause
-
-        # Check the first literal
-        first_literal = clause[0]
-        var_index = abs(first_literal) - 1  # Variable index is 1-based in DIMACS
-
-        # If the variable hasn't been initialized, set it to True
-        if var_index not in initialized_variables:
-            bdd_formula &= variables[var_index]  # Set to True
-            initialized_variables.add(var_index)
-
-        # Process the clause
-        for literal in clause:
-            var_index = abs(literal) - 1  # Variable index is 1-based in DIMACS
-            if literal > 0:
-                # Positive literal (xi)
-                clause_bdd |= variables[var_index]
-            else:
-                # Negative literal (¬xi)
-                clause_bdd |= ~variables[var_index]
-
-        # AND this clause with the current BDD formula
-        bdd_formula &= clause_bdd
-
-    return bdd_formula
+diocane = ('and', ('or', 1,2,-3), ('or', -1, 3))
+diocane_binary = ('and', ('or', 1, ('or', 2, -3)), ('or', -1, 3))
 
 
-def parse_dimacs(file_path):
-    num_variables = None
-    num_clauses = None
-    variable_order = []
-    clauses = []
+# Create the BDD from the formula
+bdd = make_bdd(level_function, diocane_binary, manager, variables)
 
-    with open(file_path, 'r') as f:
-        for line in f:
-            tokens = line.strip().split()
-
-            # Skip empty or comment lines
-            if not tokens or tokens[0] == 'c':
-                # Check for variable order comment lines (c vo ...)
-                if tokens[1] == 'vo':
-                    variable_order = list(map(int, tokens[2:]))
-                continue
-
-            # Header line (p cnf num_variables num_clauses)
-            if tokens[0] == 'p' and tokens[1] == 'cnf':
-                num_variables = int(tokens[2])
-                num_clauses = int(tokens[3])
-            else:
-                # Clause lines (e.g., 2 -3 5 0)
-                clause = list(map(int, tokens[:-1]))  # Drop the ending 0
-                clauses.append(clause)
-
-    return num_variables, num_clauses, variable_order, clauses
-
-    
-def cnf_to_bdd(clauses, num_variables):
-    manager = BDDManager(100_000_000, 1_000_000, 1)
-
-
-    # Create a variable for each feature
-    variables = [manager.new_var() for i in range(1, num_variables + 1)]
-
-
-    bdd_formula = manager.true()
-
-    for clause in clauses:
-        clause_bdd = manager.false()  # Start with false, since it's an OR clause
-        for literal in clause:
-            var_index = abs(literal) - 1  # Variable index is 1-based in DIMACS
-            if literal > 0:
-                # Positive literal (xi)
-                clause_bdd |= variables[var_index]
-            else:
-                # Negative literal (¬xi)
-                clause_bdd |= ~variables[var_index]
-
-        # AND this clause with the current BDD formula
-        bdd_formula &= clause_bdd
-    
-    return bdd_formula
-
-
-def count_valid_configurations(bdd, num_variables):
-    # Return the number of satisfying assignments
-    return bdd.sat_count_float(num_variables)
+'''
+result using the first implementation on final formula --> 1.2676506002282294e+30
+'''
 
 
 
@@ -334,64 +344,116 @@ def count_valid_configurations(bdd, num_variables):
 
 
 
-if __name__ == '__main__':
 
-    paths = {
-    "example": "Exercise1/example.dimacs",
-    "buildroot": "Exercise1/conf-dimacs/buildroot.dimacs",
-    "busybox": "Exercise1/conf-dimacs/busybox.dimacs",
-    "embtoolkit": "Exercise1/conf-dimacs/embtoolkit.dimacs",
-    "toybox": "Exercise1/conf-dimacs/toybox.dimacs",
-    "uClinux": "Exercise1/conf-dimacs/uClinux.dimacs"
-    }
 
-    path = paths["example"]
-    num_variables, num_clauses, variable_order, clauses = parse_dimacs(path)
+manager2 = BDDManager(100_000_000, 1_000_000, 1)
+x1 = manager2.new_var()
+x1.node_count()
+x2 = manager2.new_var()
+x2.node_count()
+x3 = manager2.new_var()
+x3.node_count()
+x4 = manager2.new_var()
+x4.node_count()
+x5 = manager2.new_var()
+x5.node_count()
 
-    #print(num_variables, num_clauses, variable_order, clauses)
-    bdd_formula = cnf_to_bdd(clauses, num_variables)
 
-    #same as reshma
-    bdd_new = cnf_to_bdd_with_initialization(clauses, num_variables)
+'''... add 100 features'''
 
-    '''
-    What does it mean select a feature whenever there is a choice?
-    if it means that we scan all the feature in the right order, we select 
-    and after it there still is at least one satisfiable path, we implemented it.
+tested_formula_shape2 = ('and',('or', ('or', 2, 3), 5), ('or', -3,-5)) #THIS WORKS against all possibilities
 
-    check x1, then x2, then x3, and so on
-    '''
+# 
+orcond = x2.__or__(x3)
+orcond2 = orcond.__or__(x5)
+#check the one below 
+orcond3 = -x3.__or__(-x5)
 
-    '''
-    for all the variables, scan all the clauses and put into a list the variables not contained 
-    in none of tha clauses. Each of this variable can be set to true.
-
-    After that, scan the clauses and set the first element to true if it is not been selected yet.
-    Otherwise pick the second, otherwise pick the third and so on. 
-    '''
-
-    num_valid_configs = count_valid_configurations(bdd_formula, num_variables)
-    i = 1
-
-    supp = []
-    while i <= num_variables:
-        clauses.append([i])
-        supp.append([i])
-
-        bdd_formula = cnf_to_bdd(clauses, num_variables)
-        #bdd_formula = bdd_formula.cofactor_true()
-        num_valid_configs = count_valid_configurations(bdd_formula, num_variables)
-        if num_valid_configs == 0.0:
-            supp.remove([i])
-            clauses.remove([i])
-        i+=1
-
-    print(i)
-    print(len(supp))
+trye = orcond2.__and__(orcond3)  
 
 
 
+r = x1.__and__(x2)
 
-    print("----------------------valid_configurations_number_below-----------------------")
-    print(int(num_valid_configs))
-    print()"""
+
+'''
+
+
+# Cache to store computed results of (op, A, B) to avoid recomputation
+cache = {}
+
+# Modified apply function with variable ordering checks
+def apply(op, left_bdd, right_bdd, manager):
+    # Terminal cases: return terminal if encountered
+    if left_bdd.is_terminal() and right_bdd.is_terminal():
+        if op == 'and':
+            return manager.true() if left_bdd.is_true() and right_bdd.is_true() else manager.false()
+        elif op == 'or':
+            return manager.false() if left_bdd.is_false() and right_bdd.is_false() else manager.true()
+        elif op == 'implies':
+            return manager.true() if not left_bdd.is_true() or right_bdd.is_true() else manager.false()
+        else:
+            raise ValueError(f"Unknown operator: {op}")
+
+    # Check if result is cached
+    if (op, left_bdd, right_bdd) in cache:
+        return cache[(op, left_bdd, right_bdd)]
+
+    # Determine variable ordering cases
+    left_var = left_bdd.var() if not left_bdd.is_terminal() else float('inf')
+    right_var = right_bdd.var() if not right_bdd.is_terminal() else float('inf')
+
+    if left_var == right_var:
+        # A.var == B.var, apply recursively on both branches
+        lo_bdd = apply(op, left_bdd.lo(), right_bdd.lo(), manager)
+        hi_bdd = apply(op, left_bdd.hi(), right_bdd.hi(), manager)
+        result = manager.ite(left_bdd.var(), lo_bdd, hi_bdd)  # ITE (if-then-else) for BDDs
+    elif left_var < right_var:
+        # A.var < B.var, apply recursively with B as the same on both branches
+        lo_bdd = apply(op, left_bdd.lo(), right_bdd, manager)
+        hi_bdd = apply(op, left_bdd.hi(), right_bdd, manager)
+        result = manager.ite(left_bdd.var(), lo_bdd, hi_bdd)
+    else:
+        # A.var > B.var, apply recursively with A as the same on both branches
+        lo_bdd = apply(op, left_bdd, right_bdd.lo(), manager)
+        hi_bdd = apply(op, left_bdd, right_bdd.hi(), manager)
+        result = manager.ite(right_bdd.var(), lo_bdd, hi_bdd)
+
+    # Cache the result before returning it
+    cache[(op, left_bdd, right_bdd)] = result
+    return result
+
+# Example usage for 'and', 'or', and 'implies'
+def make_bdd(level_func, phi, manager, variables):
+    if phi == False:
+        return manager.false()
+    if phi == True:
+        return manager.true()
+
+    if isinstance(phi, int):
+        var_index = abs(phi) - 1
+        if phi > 0:
+            return variables[var_index]
+        else:
+            return ~variables[var_index]
+
+    if isinstance(phi, tuple):
+        op = phi[0]
+        operands = phi[1:]
+
+        if len(operands) == 2:
+            left = make_bdd(level_func, operands[0], manager, variables)
+            right = make_bdd(level_func, operands[1], manager, variables)
+            return apply(op, left, right, manager)
+
+    raise ValueError(f"Unsupported formula structure: {phi}")
+
+# Initialize the BDD manager and variables
+manager = BDDManager(100_000_000, 1_000_000, 1)
+num_variables = 100
+variables = [manager.new_var() for i in range(1, num_variables + 1)]
+
+# Sample formula: (A.var == B.var case example)
+formula = ('implies', ('or', 1, -2), ('not', 3))
+bdd = make_bdd(None, formula, manager, variables)
+'''

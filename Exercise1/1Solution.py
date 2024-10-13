@@ -1,8 +1,6 @@
 import os
 from oxidd.bdd import BDDManager
 
-
-
 def make_bdd(level_function, formula, manager, variables):
     # Recursive function to construct π-BDD from formula
     if formula == False:
@@ -26,7 +24,6 @@ def make_bdd(level_function, formula, manager, variables):
             return left_bdd | right_bdd
     else:
         raise ValueError("Unsupported formula format")
-
 
 
 def cnf_to_bdd_with_proper_initialization(clauses, num_variables):
