@@ -1,5 +1,7 @@
 finite-state-automata/finite-state-automata
 circuit-verification/circuit-bench
+model-checking/conf-dimacs
+
 finite-state-automata/Solution.py
 
 __pycache__
