@@ -1,11 +1,9 @@
-Exercise1
-ex3/ref.py
-ex3/finite-state-automata
-ex3/Solution.py
+finite-state-automata/finite-state-automata
+circuit-verification/circuit-branch
+finite-state-automata/Solution.py
 
 __pycache__
 .SD_Store
-
 
 .DS_Store
 
