@@ -4,12 +4,14 @@ from mapping import mapping, reordering
 from util import read_file
 manager = BDDManager(100_000_000, 1_000_000, 8)
 
-file_path1 = 'circuit-verification/circuit-bench/circuit01.bench'
-inputs, outputs, raw_S = read_file(file_path1)
-file_path2 = 'circuit-verification/circuit-bench/circuit01_opt.bench'  
+n = '10'
+file_path2 = f'circuit-verification/circuit-bench/circuit{n}_opt.bench'
+file_path1 = f'circuit-verification/circuit-bench/circuit{n}.bench'
+
+inputs1, outputs1, raw_S1 = read_file(file_path1)
 inputs2, outputs2, raw_S2 = read_file(file_path2)
 
-S, inputsS, outputsS, T, inputsT, outputsT = mapping(raw_S, inputs, outputs, raw_S2, inputs2, outputs2)
+S, inputsS, outputsS, T, inputsT, outputsT = mapping(raw_S1, inputs1, outputs1, raw_S2, inputs2, outputs2)
 S = reordering(S, inputsS)
 T = reordering(T, inputsT)
 
