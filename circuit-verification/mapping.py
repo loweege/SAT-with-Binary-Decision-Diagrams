@@ -36,7 +36,7 @@ def mapping(raw_S, inputs, outputs, raw_S2, inputs2, outputs2):
             for value in current_list:
                 replacement = f"x{c}"
                 
-                # Substitute in all three lists
+                # Substitute in all lists
                 new_raw_S = substitute_in_S(raw_S, value, replacement)
                 new_inputs = substitute_in_list(inputs, value, replacement)
                 new_outputs = substitute_in_list(outputs, value, replacement)
