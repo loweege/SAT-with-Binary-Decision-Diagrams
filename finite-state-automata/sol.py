@@ -2,7 +2,7 @@ from oxidd.bdd import BDDManager
 from util import *
 
 manager = BDDManager(100_000_000, 1_000_000, 8)
-file_path = 'finite-state-automata/finite-state-automata/phils.2.c.ba'
+file_path = 'finite-state-automata/finite-state-automata/bakery.2.c.ba'
 
 approx = 4 
 
@@ -35,7 +35,7 @@ def transitions_optimisation(transitions):
 
 
 
-#transitions = transitions_optimisation(transitions)
+transitions = transitions_optimisation(transitions)
 
 
 

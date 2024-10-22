@@ -24,7 +24,7 @@ def parse_dimacs(file_path):
 
     return num_variables, num_clauses, variable_order, clauses
 
-num_variables, num_clauses, variable_order, clauses = parse_dimacs(file_path='model-checking/conf-dimacs/busybox.dimacs')
+num_variables, num_clauses, variable_order, clauses = parse_dimacs(file_path='model-checking/conf-dimacs/example2.dimacs')
 
 manager = BDDManager(100_000_000, 1_000_000, 8)
 variables = [manager.new_var() for i in range(num_variables)]
@@ -98,20 +98,215 @@ if len(clauses) > 2:
         
         cnf_bdd = cnf_bdd.__and__(clause_f)   
 
-print('diocane')
+
+
+
+
+
+def selective_configuration(num_clauses, variable_order, clauses):
+    E = [] 
+    assignment = {} 
+
+    relevant_variables = set()
+    for clause in clauses:
+        for literal in clause:
+            relevant_variables.add(abs(literal))  
+
+
+    def is_global_satisfiable(feature):
+        for clause in clauses:
+            if feature in clause or -feature in clause:
+                clause_satisfied = False
+                for literal in clause:
+                    var = abs(literal)
+                    if literal > 0 and assignment.get(var, -1) == 1:  # Positive literal must be 1
+                        clause_satisfied = True
+                        break 
+                    elif literal < 0 and assignment.get(var, -1) == 0:  # Negative literal must be 0
+                        clause_satisfied = True
+                        break 
+                if not clause_satisfied:  
+                    return False
+        return True
+
+
+    for feature in variable_order:
+        if feature not in relevant_variables:
+            continue  
+
+
+        assignment[feature] = 1  
+        E.append((feature, 1))
+
+        if is_global_satisfiable(feature):
+            break  
+
+        assignment[feature] = 0  # Deselect the feature (set to 0)
+        E[-1] = (feature, 0)  # Update the decision in the list
+
+        if is_global_satisfiable(feature):
+            break  # Stop early if the CNF is satisfied
+
+    return len(E), E  # Return the number of decisions made and the decisions themselves
+
+ 
+print(selective_configuration(num_clauses=num_clauses, variable_order=variable_order, clauses=clauses))
+
 
 '''
-permessive configuration process
 
-take all the feature in the right order.
+a clause 
 
-for each of the feature check if it is contained in one of the clauses.
-if not select it (insert into F/E set)
-otherwise, select it (insert into E set [permessive configuration]) check if the new bdd is satisfiable, if yes go on
-if not go back (remove from E set [permessive configuration] the feature) and deselect the feature you are considering.
-
+if the len of the literals SCANNED (everyone both in FE and E) is len(clause) - 1 AND the CF[idx] corresponding is still 0
+activate the missing variable
 '''
 
+def element_scanned_in_a_clause(clause, E, FE):
+    counter = 0
+    for literal in clause:
+        for el in E:
+            if abs(el) == abs(literal):
+                counter += 1
+        for el in FE:
+            if abs(el) == abs(literal):
+                counter += 1
+    return counter
+
+
+def selective_configuration(num_clauses, variable_order):
+
+    CF = [0] * num_clauses
+    E = []
+    FE = []
+    is_in_FE = True
+    occurred = False
+    flag = False
+    activation_protocol = False 
+
+    for feature in variable_order:
+        occurred = False
+        is_in_FE = True
+        flag = True
+        activation_protocol = False 
+
+        for clause_idx in range(len(clauses)):
+            for literal_idx in range(len(clauses[clause_idx])):
+                if clauses[clause_idx][literal_idx] == feature:
+                    if CF[clause_idx] == 0 and flag:
+
+                        '''if (element_scanned_in_a_clause(clauses[clause_idx], E, FE) == (len(clauses[clause_idx]) - 1) and
+                            CF[clause_idx] == 0):   
+                            activation_protocol = True'''
+
+                        flag = False
+                        is_in_FE = False
+                        CF[clause_idx] = 1
+                        if not occurred:
+                            occurred = True
+
+                elif clauses[clause_idx][literal_idx] == -feature:
+                    if CF[clause_idx] == 0 and flag:
+
+                        if (element_scanned_in_a_clause(clauses[clause_idx], E, FE) == (len(clauses[clause_idx]) - 1) and
+                            CF[clause_idx] == 0):   
+                            activation_protocol = True
+
+                        flag = False
+                        is_in_FE = False
+                        if not occurred:
+                            occurred = True
+
+        if is_in_FE:
+            FE.append(feature)
+        else:
+            if activation_protocol:
+                E.append(-(feature))
+            else:
+                E.append(feature)
+    return E, FE
+
+def deselective_configuration(num_clauses, variable_order):
+    pass
+
+E, FE = selective_configuration(num_clauses=num_clauses, variable_order=variable_order)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+def permissive_configuration(num_clauses, variable_order):
+
+    E = []
+    CF = [0] * num_clauses
+    FE = []
+    is_in_FE = True
+    occurred = False
+    flag = False
+
+    for feature in variable_order:
+        occurred = False
+        is_in_FE = True
+        first_occurrence = 0  
+        flag = True
+
+        for clause_idx in range(len(clauses)):
+            for literal_idx in range(len(clauses[clause_idx])):
+                if abs(clauses[clause_idx][literal_idx]) == feature:
+
+                    if CF[clause_idx] == 0 and flag:
+                        flag = False
+                        is_in_FE = False
+                        CF[clause_idx] = 1
+                        if not occurred:
+                            first_occurrence = clauses[clause_idx][literal_idx]
+                            occurred = True
+        if is_in_FE:
+            FE.append(feature)
+        else:
+            if first_occurrence > 0:
+                E.append(feature)
+            else:
+                E.append(-feature)
+    return E, FE
+
+E, FE = permissive_configuration(num_clauses=num_clauses, variable_order=variable_order)
+
+if E[0] > 0 and E[1] > 0:
+    limited_variables = variables[abs(E[0])-1].__and__(variables[abs(E[1])-1])
+elif E[0] > 0 and E[1] < 0:
+    limited_variables = variables[abs(E[0])-1].__and__((variables[abs(E[1])-1]).__invert__())
+elif E[0] < 0 and E[1] > 0:
+    limited_variables = (variables[abs(E[0])-1].__invert__()).__and__(variables[abs(E[1])-1])
+else:
+    limited_variables = (variables[abs(E[0])-1].__invert__()).__and__((variables[abs(E[1])-1]).__invert__())
+
+for i in range(2, len(E)):
+    if E[i] > 0:
+        limited_variables = limited_variables.__and__(variables[abs(E[i])-1])
+    else:
+        limited_variables = limited_variables.__and__((variables[abs(E[i])-1]).__invert__())
+
+restricted_bdd = cnf_bdd.__and__(limited_variables)
+
+
+print('OSTIA')
 
 
 '''
@@ -121,12 +316,12 @@ RESULTS
 
 buildroot: 1.979294126137951e+158
 
-busybox: 
+busybox: inf
 
-embtoolkit: 
+embtoolkit: memory out of bound
 
-toybox: 
+toybox: 1.4499179090096947e+17
 
-uClinux: 
+uClinux: inf
 
 '''
