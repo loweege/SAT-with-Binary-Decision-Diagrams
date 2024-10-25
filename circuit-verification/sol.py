@@ -4,12 +4,13 @@ from mapping import mapping, reordering
 from util import read_file
 manager = BDDManager(100_000_000, 1_000_000, 8)
 
-n = '10'
+
+n = '01'
 file_path2 = f'circuit-verification/circuit-bench/circuit{n}_opt.bench'
 file_path1 = f'circuit-verification/circuit-bench/circuit{n}.bench'
 
-inputs1, outputs1, raw_S1 = read_file(file_path1)
-inputs2, outputs2, raw_S2 = read_file(file_path2)
+inputs1, outputs1, raw_S1, output_numbers1 = read_file(file_path1)
+inputs2, outputs2, raw_S2, output_numbers2 = read_file(file_path2)
 
 S, inputsS, outputsS, T, inputsT, outputsT = mapping(raw_S1, inputs1, outputs1, raw_S2, inputs2, outputs2)
 S = reordering(S, inputsS)
@@ -125,7 +126,6 @@ def gate_diagrammization(circuit, pattern, alphas):
         else:
             raise ValueError(f"Unsupported operation: {right_side}")
 
-
 def ultimate_function(circuit1, circuit2, outputs1, outputs2):
     pattern = r'x(\d+)'
 
@@ -157,16 +157,8 @@ def ultimate_function(circuit1, circuit2, outputs1, outputs2):
     gamma = supp 
     del supp
 
-
-    '''ONLY FOR TESTINFG PURPOSES'''
-    for j in range(len(indeces1)):
-        if not phis[int(indeces1[j])].equiv(psys[int(indeces2[j])]).valid():
-            print(f'Error: phis {indeces1[j]} and psys {indeces2[j]} are not equivalent.')
-
     return gamma
 
 gamma = ultimate_function(S, T, outputsS, outputsT)
 print('----------------------------Are-the-two-circuits-equivalent?------------------------------------')
 print(gamma.valid())
-
-

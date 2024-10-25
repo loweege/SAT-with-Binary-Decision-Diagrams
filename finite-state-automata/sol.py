@@ -2,12 +2,9 @@ from oxidd.bdd import BDDManager
 from util import *
 
 manager = BDDManager(100_000_000, 1_000_000, 8)
-file_path = 'finite-state-automata/finite-state-automata/bakery.2.c.ba'
+file_path = 'finite-state-automata/finite-state-automata/phils.2.c.ba'
 
 approx = 4 
-
-#initialize the variables needed [from 0 to num_variables-1]
-#num_variables = variable_number_calculation(file_path, approx)
 num_variables = 104
 
 x = [manager.new_var() for i in range(num_variables)]
@@ -33,12 +30,7 @@ def transitions_optimisation(transitions):
 
     return reordered
 
-
-
 transitions = transitions_optimisation(transitions)
-
-
-
 
 '''------------------------TRANSITIONS DIAGRAMMIZATION PROCESSING------------------------'''
 if transitions[0][0] == '1' and transitions[0][0] == '1':
@@ -97,10 +89,8 @@ for j in range(2, len(transitions)):
 '''------------------------TRANSITIONS DIAGRAMMIZATION CONCLUDED------------------------'''
 
 
-'''------------------------ACCEPTING STATES DIAGRAMMIZATION PROCESSING------------------------'''
-def compute_gamma(list, x):
-    def compute_phi(row):
-        # Compute the first condition for the row
+'''------------------------INITIAL STATE DIAGRAMMIZATION PROCESSING------------------------'''
+def compute_phi(row):
         if row[0] == '1' and row[1] == '1':
             phi = x[0].__and__(x[1])
         elif row[0] == '0' and row[1] == '1':
@@ -110,7 +100,7 @@ def compute_gamma(list, x):
         elif row[0] == '0' and row[1] == '0':
             phi = (x[0].__invert__()).__and__(x[1].__invert__())
         
-        # Loop through the rest of the elements in the row
+
         for i in range(2, len(row)):
             if row[i] == '0':
                 phi = phi.__and__(x[i].__invert__())
@@ -118,14 +108,16 @@ def compute_gamma(list, x):
                 phi = phi.__and__(x[i])
         return phi
 
-    # Compute the first two phi values
+'''---------------------------------------------------------------------------------------'''
+
+
+'''------------------------ACCEPTING STATES DIAGRAMMIZATION PROCESSING------------------------'''
+def compute_gamma(list, x):
     phi = compute_phi(list[0])
     phi2 = compute_phi(list[1])
 
-    # Compute initial gamma as the OR of the first two phi values
     gamma = phi.__or__(phi2)
 
-    # Compute the remaining phi values and OR them with gamma
     for j in range(2, len(list)):
         alpha = compute_phi(list[j])
         gamma = gamma.__or__(alpha)
@@ -133,29 +125,12 @@ def compute_gamma(list, x):
     return gamma
 '''------------------------ACCEPTING STATES DIAGRAMMIZATION CONCLUDED-------------------------'''
 
-gamma1 = compute_gamma(accepting_states, y)
-'''
-(A) the variable ordering of the shared BDD
 
-(B) the total number of nodes of the shared BDD
+initial_gamma = compute_phi(source_state)
+accepting_gamma = compute_gamma(accepting_states, y)
+print(initial_gamma.node_count())
 
-(C) the number satisfying assignments and BDD nodes for representing the characteristic function of
-    (i) the initial state,
-    (ii) the transition relation, and
-    (iii) the accepting states.
-
-'''
-
-'''
-THINGS TO WRITE IN THE REPORT
-
-1) Encoding (with ERR and how has been exploited only four bits)
-2) The difference between the order of the feature. Heuristic and not Heuristic
-
-'''
-
-
-
+'''SOLUTIONS BELOW'''
 'bakery.1.c.ba NON HEURISTIC'
 #nodes -> 48715
 #paths -> 2697.0
@@ -165,7 +140,8 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 1210
 #paths -> 196.0
-
+'INITIAL STATE'
+#nodes -> 42
 
 'bakery.2.c.ba NON HEURISTIC'
 #nodes -> 35802
@@ -176,7 +152,8 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 937
 #paths -> 204.0
-
+'INITIAL STATES'
+#nodes -> 42
 
 'fischer.2.c.ba NON HEURISTIC'
 #nodes -> 313858
@@ -187,7 +164,8 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 2542
 #paths -> 6866
-
+'INITIAL STATES'
+#nodes -> 34
 
 'fischer.3.1.c.ba NON HEURISTIC'
 #nodes -> 13708
@@ -198,7 +176,9 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 252
 #paths -> 29.0
-
+'INITIAL STATE'
+#nodes -> 34
+#path -> 1
 
 'fischer.3.2.c.ba NON HEURISTIC'
 #nodes -> 25826
@@ -209,7 +189,8 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 870
 #paths -> 431.0
-
+'INITIAL STATE'
+#nodes -> 34
 
 'fischer.3.c.ba NON HEURISTIC'
 #nodes -> 13737
@@ -220,7 +201,8 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 252
 #paths -> 29.0
-
+'INITIAL STATE'
+#nodes -> 34
 
 'mcs.1.2.c.ba NON HEURISTIC'
 #nodes -> 314625
@@ -231,7 +213,8 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 2261
 #paths -> 1843.0
-
+'INITIAL STATE'
+#nodes -> 54
 
 'NFA_hard_1.ba NON HEURISTIC'
 #nodes -> 237553
@@ -242,7 +225,8 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 1076
 #paths -> 2850.0
-
+'INITIAL STATE'
+#nodes -> 46
 
 'phils.1.1.c.ba NON HEURISTIC'
 #nodes -> 5174
@@ -253,6 +237,8 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 230
 #paths -> 81.0
+'INITIAL STATE'
+#nodes -> 34
 
 
 'phils.2.c.ba NON HEURISTIC'
@@ -264,3 +250,5 @@ THINGS TO WRITE IN THE REPORT
 'ACCEPTING STATES'
 #nodes -> 1073
 #paths -> 295.0
+'INITIAL STATE'
+#nodes -> 46

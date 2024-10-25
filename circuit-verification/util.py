@@ -3,6 +3,7 @@ def read_file(file_path):
     outputs = []
     S = []
 
+    c = 0
     with open(file_path, 'r') as file:
         for line in file:
             line = line.strip()
@@ -14,7 +15,9 @@ def read_file(file_path):
             elif line.startswith('OUTPUT('):
                 element = line[len('OUTPUT('):-1]
                 outputs.append(element)
+
+                c += 1
             else:
                 S.append(line)
 
-    return inputs, outputs, S
+    return inputs, outputs, S, c
