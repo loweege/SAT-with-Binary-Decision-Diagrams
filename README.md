@@ -16,3 +16,17 @@ A binary decision diagram can be seen as the weird cousin of the binary decision
 But if they are so useful, how can I apply them in real-life? Well, if that is the question you were thinking of, it is time to celebrate! Why? Because here you can find some practical and useful examples of their application.
 
 The main library considered is [OxiDD](https://github.com/OxiDD/oxidd), a state-of-the-art, highly modular decision diagram framework written in Rust.
+
+## Installation
+
+To get started, ensure you have Python installed. Then, install the OxiDD wrapped library for Python by running the following command:
+
+```bash
+pip install oxidd
+```
+
+## Contributors
+<!-- collaborators -->
+<a href="https://github.com/loweege"><img src="https://github.com/user-attachments/assets/ae902e5c-80e5-47ac-b86d-b575ae478bbd" width="60px"/></a>
+<a href="https://github.com/Marchabar"><img src="https://github.com/user-attachments/assets/7df50b32-373e-4f71-a8c9-9e6ebb17daf9" width="60px"/></a>
+<!-- collaborators -->
