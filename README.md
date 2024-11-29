@@ -15,4 +15,4 @@ A binary decision diagram can be seen as the weird cousin of the binary decision
 
 But if they are so useful, how can I apply them in real-life? Well, if that is the question you were thinking of, it is time to celebrate! Why? Because here you can find some practical and useful examples of their application.
 
-The main library considered is [OxiDD](https://github.com/tweag/oxidd), a state-of-the-art, highly modular decision diagram framework written in Rust.
+The main library considered is [OxiDD](https://github.com/OxiDD/oxidd), a state-of-the-art, highly modular decision diagram framework written in Rust.
