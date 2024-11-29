@@ -1,4 +1,4 @@
-from oxidd.bdd import BDDManager
+from buddy import BuDDy
 
 def parse_dimacs(file_path):
     num_variables = None
@@ -24,304 +24,167 @@ def parse_dimacs(file_path):
 
     return num_variables, num_clauses, variable_order, clauses
 
-num_variables, num_clauses, variable_order, clauses = parse_dimacs(file_path='model-checking/conf-dimacs/example2.dimacs')
-
-manager = BDDManager(100_000_000, 1_000_000, 8)
-variables = [manager.new_var() for i in range(num_variables)]
-
-if len(clauses[0]) == 1:
-    if clauses[0][0] > 0:
-        first_clause = variables[abs(clauses[0][0])-1]
-    else:
-        first_clause = variables[abs(clauses[0][0])-1].__invert__() 
-else:
-    if ((clauses[0][0]) > 0 and (clauses[0][1]) > 0):
-        first_clause = (variables[abs(clauses[0][0])-1]).__or__(variables[abs(clauses[0][1])-1])
-    elif ((clauses[0][0]) > 0 and (clauses[0][1]) < 0):
-        first_clause = (variables[abs(clauses[0][0])-1]).__or__((variables[abs(clauses[0][1])-1].__invert__()))
-    elif ((clauses[0][0]) < 0 and (clauses[0][1]) > 0):
-        first_clause = ((variables[abs(clauses[0][0])-1].__invert__())).__or__(variables[abs(clauses[0][1])-1])
-    else:
-        first_clause = ((variables[abs(clauses[0][0])-1].__invert__())).__or__((variables[abs(clauses[0][1])-1].__invert__()))
-if len(clauses[0]) > 2:
-    for i in range(2, len(clauses[0])):
-        if (clauses[0][i]) > 0:
-            first_clause = first_clause.__or__(variables[abs(clauses[0][i])-1])
-        else:
-            first_clause = first_clause.__or__(variables[abs(clauses[0][i])-1].__invert__())
-
-if len(clauses[1]) == 1:
-    if clauses[1][0] > 0:
-        second_clause = variables[abs(clauses[1][0])-1]
-    else:
-        second_clause = variables[abs(clauses[1][0])-1].__invert__() 
-else:
-    if ((clauses[1][0]) > 0 and (clauses[1][1]) > 0):
-        second_clause = (variables[abs(clauses[1][0])-1]).__or__(variables[abs(clauses[1][1])-1])
-    elif ((clauses[1][0]) > 0 and (clauses[1][1]) < 0):
-        second_clause = (variables[abs(clauses[1][0])-1]).__or__((variables[abs(clauses[1][1])-1].__invert__()))
-    elif ((clauses[1][0]) < 0 and (clauses[1][1]) > 0):
-        second_clause = ((variables[abs(clauses[1][0])-1].__invert__())).__or__(variables[abs(clauses[1][1])-1])
-    else:
-        second_clause = ((variables[abs(clauses[1][0])-1].__invert__())).__or__((variables[abs(clauses[1][1])-1].__invert__()))
-if len(clauses[1]) > 2:
-    for i in range(2, len(clauses[1])):
-        if (clauses[1][i]) > 0:
-            second_clause = second_clause.__or__(variables[abs(clauses[1][i])-1])
-        else:
-            second_clause = second_clause.__or__(variables[abs(clauses[1][i])-1].__invert__())  
-
-cnf_bdd = first_clause.__and__(second_clause)
-
-if len(clauses) > 2:
-    for clause in clauses[2:]:
-        if len(clause) == 1:
-            if clause[0] > 0:
-                clause_f = variables[abs(clause[0])-1]
-            else:
-                clause_f = variables[abs(clause[0])-1].__invert__() 
-        else:
-            if ((clause[0]) > 0 and (clause[1]) > 0):
-                clause_f = (variables[abs(clause[0])-1]).__or__(variables[abs(clause[1])-1])
-            elif ((clause[0]) > 0 and (clause[1]) < 0):
-                clause_f = (variables[abs(clause[0])-1]).__or__((variables[abs(clause[1])-1].__invert__()))
-            elif ((clause[0]) < 0 and (clause[1]) > 0):
-                clause_f = ((variables[abs(clause[0])-1].__invert__())).__or__(variables[abs(clause[1])-1])
-            else:
-                clause_f = ((variables[abs(clause[0])-1].__invert__())).__or__((variables[abs(clause[1])-1].__invert__()))
-        if len(clause) > 2:
-            for i in range(2, len(clause)):
-                if (clause[i]) > 0:
-                    clause_f = clause_f.__or__(variables[abs(clause[i])-1])
-                else:
-                    clause_f = clause_f.__or__(variables[abs(clause[i])-1].__invert__())  
-        
-        cnf_bdd = cnf_bdd.__and__(clause_f)   
-
-
-
-
-
-
-def selective_configuration(num_clauses, variable_order, clauses):
-    E = [] 
-    assignment = {} 
-
-    relevant_variables = set()
+def diagramization(manager, clauses):
+    cnf_bdd = 1
     for clause in clauses:
+        clause_bdd = 0
         for literal in clause:
-            relevant_variables.add(abs(literal))  
+            if literal > 0:
+                var_bdd = manager.var2bdd(literal)
+            elif literal < 0:
+                var_bdd = manager.neg(manager.var2bdd(abs(literal)))
+            clause_bdd = manager.apply_or(clause_bdd, var_bdd)
+        cnf_bdd = manager.apply_and(cnf_bdd, clause_bdd)
 
+    return cnf_bdd 
 
-    def is_global_satisfiable(feature):
-        for clause in clauses:
-            if feature in clause or -feature in clause:
-                clause_satisfied = False
-                for literal in clause:
-                    var = abs(literal)
-                    if literal > 0 and assignment.get(var, -1) == 1:  # Positive literal must be 1
-                        clause_satisfied = True
-                        break 
-                    elif literal < 0 and assignment.get(var, -1) == 0:  # Negative literal must be 0
-                        clause_satisfied = True
-                        break 
-                if not clause_satisfied:  
-                    return False
-        return True
+def selecting_literal_when_choice(manager, clauses):
+    bdd = diagramization(manager, clauses)  
+    permissive_features = []
+    while bdd != manager.true:
+        current_node = bdd 
+        branch_0 = manager.low(current_node)
+        branch_1 = manager.high(current_node)
 
-
-    for feature in variable_order:
-        if feature not in relevant_variables:
-            continue  
-
-
-        assignment[feature] = 1  
-        E.append((feature, 1))
-
-        if is_global_satisfiable(feature):
-            break  
-
-        assignment[feature] = 0  # Deselect the feature (set to 0)
-        E[-1] = (feature, 0)  # Update the decision in the list
-
-        if is_global_satisfiable(feature):
-            break  # Stop early if the CNF is satisfied
-
-    return len(E), E  # Return the number of decisions made and the decisions themselves
-
- 
-print(selective_configuration(num_clauses=num_clauses, variable_order=variable_order, clauses=clauses))
-
-
-'''
-
-a clause 
-
-if the len of the literals SCANNED (everyone both in FE and E) is len(clause) - 1 AND the CF[idx] corresponding is still 0
-activate the missing variable
-'''
-
-def element_scanned_in_a_clause(clause, E, FE):
-    counter = 0
-    for literal in clause:
-        for el in E:
-            if abs(el) == abs(literal):
-                counter += 1
-        for el in FE:
-            if abs(el) == abs(literal):
-                counter += 1
-    return counter
-
-
-def selective_configuration(num_clauses, variable_order):
-
-    CF = [0] * num_clauses
-    E = []
-    FE = []
-    is_in_FE = True
-    occurred = False
-    flag = False
-    activation_protocol = False 
-
-    for feature in variable_order:
-        occurred = False
-        is_in_FE = True
-        flag = True
-        activation_protocol = False 
-
-        for clause_idx in range(len(clauses)):
-            for literal_idx in range(len(clauses[clause_idx])):
-                if clauses[clause_idx][literal_idx] == feature:
-                    if CF[clause_idx] == 0 and flag:
-
-                        '''if (element_scanned_in_a_clause(clauses[clause_idx], E, FE) == (len(clauses[clause_idx]) - 1) and
-                            CF[clause_idx] == 0):   
-                            activation_protocol = True'''
-
-                        flag = False
-                        is_in_FE = False
-                        CF[clause_idx] = 1
-                        if not occurred:
-                            occurred = True
-
-                elif clauses[clause_idx][literal_idx] == -feature:
-                    if CF[clause_idx] == 0 and flag:
-
-                        if (element_scanned_in_a_clause(clauses[clause_idx], E, FE) == (len(clauses[clause_idx]) - 1) and
-                            CF[clause_idx] == 0):   
-                            activation_protocol = True
-
-                        flag = False
-                        is_in_FE = False
-                        if not occurred:
-                            occurred = True
-
-        if is_in_FE:
-            FE.append(feature)
+        if (manager.satcount_ln(branch_0) > 0 and manager.satcount_ln(branch_1) > 0) or branch_0 == manager.false:
+            current_node = branch_1
+            permissive_features.append(manager.var(bdd))  
         else:
-            if activation_protocol:
-                E.append(-(feature))
-            else:
-                E.append(feature)
-    return E, FE
+            current_node = branch_0
+            permissive_features.append(-manager.var(bdd))  
+        bdd = current_node
 
-def deselective_configuration(num_clauses, variable_order):
-    pass
+    return len(permissive_features)
+     
 
-E, FE = selective_configuration(num_clauses=num_clauses, variable_order=variable_order)
+def deselecting_literal_when_choice(manager, clauses):
+    bdd = diagramization(manager, clauses)
+    permissive_features = []
 
+    while bdd != manager.true:
+        current_node = bdd
+        branch_0 = manager.low(current_node)
+        branch_1 = manager.high(current_node)
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-def permissive_configuration(num_clauses, variable_order):
-
-    E = []
-    CF = [0] * num_clauses
-    FE = []
-    is_in_FE = True
-    occurred = False
-    flag = False
-
-    for feature in variable_order:
-        occurred = False
-        is_in_FE = True
-        first_occurrence = 0  
-        flag = True
-
-        for clause_idx in range(len(clauses)):
-            for literal_idx in range(len(clauses[clause_idx])):
-                if abs(clauses[clause_idx][literal_idx]) == feature:
-
-                    if CF[clause_idx] == 0 and flag:
-                        flag = False
-                        is_in_FE = False
-                        CF[clause_idx] = 1
-                        if not occurred:
-                            first_occurrence = clauses[clause_idx][literal_idx]
-                            occurred = True
-        if is_in_FE:
-            FE.append(feature)
+        if (manager.satcount_ln(branch_0) > 0 and manager.satcount_ln(branch_1) > 0) or branch_1 == manager.false:
+            current_node = branch_0
+            permissive_features.append(-manager.var(bdd))
         else:
-            if first_occurrence > 0:
-                E.append(feature)
+            current_node = branch_1
+            permissive_features.append(manager.var(bdd))
+        bdd = current_node
+
+    return len(permissive_features)
+
+def selecting_features_if_more_configurations(manager, clauses):
+    bdd = diagramization(manager, clauses)  
+    permissive_features = []
+
+    while bdd != manager.true:
+        current_node = bdd
+        branch_0 = manager.low(current_node)
+        branch_1 = manager.high(current_node)
+
+        if branch_1 != manager.false:
+            count_true = manager.satcount_ln(branch_1)
+        else:
+            count_true = 0
+
+        if branch_0 != manager.false:
+            count_false = manager.satcount_ln(branch_0)
+        else:
+            count_false = 0
+
+        if count_true >= count_false:
+            permissive_features.append(manager.var(current_node))  
+            current_node = branch_1
+        else:
+            permissive_features.append(-manager.var(current_node))  
+            current_node = branch_0
+        bdd = current_node
+
+    return len(permissive_features)
+
+
+def deselecting_features_if_more_configurations(manager, clauses):
+    bdd = diagramization(manager, clauses)  
+    permissive_features = []
+   
+    while bdd != manager.true:
+        current_node = bdd
+        branch_0 = manager.low(current_node)
+        branch_1 = manager.high(current_node)
+
+        if branch_1 != manager.false:
+            count_true = manager.satcount_ln(branch_1)
+        else:
+            count_true = 0
+
+        if branch_0 != manager.false:
+            count_false = manager.satcount_ln(branch_0)
+        else:
+            count_false = 0
+
+        if count_false >= count_true:
+            permissive_features.append(-manager.var(current_node))  
+            current_node = branch_0
+        else:
+            permissive_features.append(manager.var(current_node))  
+            current_node = branch_1
+        bdd = current_node
+
+    return len(permissive_features)
+
+
+def most_permissive_configuration(manager, clauses, variable_order):
+    bdd = diagramization(manager, clauses)
+    permissive_features = []
+
+    while bdd != manager.true:
+        current_node = bdd
+        branch_0 = manager.low(current_node)
+        branch_1 = manager.high(current_node)
+        count_false = manager.satcount_ln(branch_0)
+        count_true = manager.satcount_ln(branch_1)
+        var = manager.var(current_node)
+        
+        if count_true > count_false:
+            permissive_features.append(var)  
+            bdd = branch_1
+        elif count_true < count_false:
+            permissive_features.append(-var)  
+            bdd = branch_0
+        else:
+            index_var = variable_order.index(var)
+            index_branch_0 = variable_order.index(manager.var(branch_0))
+            index_branch_1 = variable_order.index(manager.var(branch_1))
+            sum_indexes_0 = index_var + index_branch_0
+            sum_indexes_1 = index_var + index_branch_1
+
+            if sum_indexes_1 < sum_indexes_0:
+                permissive_features.append(var)  
+                bdd = branch_1
             else:
-                E.append(-feature)
-    return E, FE
+                permissive_features.append(-var)  
+                bdd = branch_0
 
-E, FE = permissive_configuration(num_clauses=num_clauses, variable_order=variable_order)
+    return len(permissive_features), permissive_features
 
-if E[0] > 0 and E[1] > 0:
-    limited_variables = variables[abs(E[0])-1].__and__(variables[abs(E[1])-1])
-elif E[0] > 0 and E[1] < 0:
-    limited_variables = variables[abs(E[0])-1].__and__((variables[abs(E[1])-1]).__invert__())
-elif E[0] < 0 and E[1] > 0:
-    limited_variables = (variables[abs(E[0])-1].__invert__()).__and__(variables[abs(E[1])-1])
-else:
-    limited_variables = (variables[abs(E[0])-1].__invert__()).__and__((variables[abs(E[1])-1]).__invert__())
+file_path = './model-checking/conf-dimacs/buildroot.dimacs'
+num_variables, num_clauses, variable_order, clauses = parse_dimacs(file_path)
 
-for i in range(2, len(E)):
-    if E[i] > 0:
-        limited_variables = limited_variables.__and__(variables[abs(E[i])-1])
-    else:
-        limited_variables = limited_variables.__and__((variables[abs(E[i])-1]).__invert__())
+manager = BuDDy(variable_order, "buddy.windows")
+cnf = diagramization(manager, clauses)
+flag = True
+if flag:
+    valid_configurations = manager.satcount_ln(cnf)
+    print("Selecting whenever there is a choice: ", selecting_literal_when_choice(manager, clauses))
+    print("Deselecting whenever there is a choice: ", deselecting_literal_when_choice(manager, clauses))
+    print("Selecting a feature iff this decision would cover more valid configurations than with deselecting the feature: ", selecting_features_if_more_configurations(manager, clauses))
+    print("Deselecting a feature iff this decision would cover more valid configurations than with selecting the feature: ", deselecting_features_if_more_configurations(manager, clauses))
+    print(f"Number of valid configurations: {valid_configurations}")
 
-restricted_bdd = cnf_bdd.__and__(limited_variables)
+    print("Most permissive configuration: ", most_permissive_configuration(manager, clauses, variable_order))
 
+manager.__exit__()
 
-print('OSTIA')
-
-
-'''
-RESULTS
-
-(A) the total number of valid configurations
-
-buildroot: 1.979294126137951e+158
-
-busybox: inf
-
-embtoolkit: memory out of bound
-
-toybox: 1.4499179090096947e+17
-
-uClinux: inf
-
-'''

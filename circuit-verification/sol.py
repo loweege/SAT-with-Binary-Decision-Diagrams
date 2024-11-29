@@ -4,7 +4,6 @@ from mapping import mapping, reordering
 from util import read_file
 manager = BDDManager(100_000_000, 1_000_000, 8)
 
-
 n = '01'
 file_path2 = f'circuit-verification/circuit-bench/circuit{n}_opt.bench'
 file_path1 = f'circuit-verification/circuit-bench/circuit{n}.bench'

@@ -163,8 +163,6 @@ def reordering(S, inputsS):
     def subroutine1(equations, ins):
         n = -1
         while len(new_list) != n:
-            #print(len(new_list), len(equations))
-            #514 - 652
             n = len(new_list)
             for eq in equations:
                 rhs = eq.split('=')[1].strip()

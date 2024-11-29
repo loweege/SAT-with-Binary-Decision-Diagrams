@@ -37,8 +37,6 @@ for _ in range(num_matches):
     else:
         M_p[_] = 6
 
-
-
 for i in range(num_matches):
     solver.add(M_end[i] == M_start[i] + M_duration[i])
     solver.add(M_start[i] >= 14*60) 
@@ -60,8 +58,6 @@ for i in range(num_matches):
 
 for i in range(num_days):
     solver.add(And(M_d[i] >= 0, M_d[i] <= num_days))
-
-
 
 max_day = Int("max_day")
 solver.add(max_day >= 6)

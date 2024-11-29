@@ -6,10 +6,8 @@ file_path = 'finite-state-automata/finite-state-automata/phils.2.c.ba'
 
 approx = 4 
 num_variables = 104
-
 x = [manager.new_var() for i in range(num_variables)]
 y = [manager.new_var() for i in range(int(num_variables/2))]
-
 source_state, transitions, accepting_states = parsing(file_path, approx)
 
 def transitions_optimisation(transitions):
@@ -47,7 +45,6 @@ for i in range(2, len(transitions[0])):
         phi = phi.__and__(x[i].__invert__())
     else:
         phi = phi.__and__(x[i])
-
 
 if transitions[1][0] == '1' and transitions[1][0] == '1':
     phi2 = x[0].__and__(x[1])
@@ -100,7 +97,6 @@ def compute_phi(row):
         elif row[0] == '0' and row[1] == '0':
             phi = (x[0].__invert__()).__and__(x[1].__invert__())
         
-
         for i in range(2, len(row)):
             if row[i] == '0':
                 phi = phi.__and__(x[i].__invert__())
@@ -124,7 +120,6 @@ def compute_gamma(list, x):
     
     return gamma
 '''------------------------ACCEPTING STATES DIAGRAMMIZATION CONCLUDED-------------------------'''
-
 
 initial_gamma = compute_phi(source_state)
 accepting_gamma = compute_gamma(accepting_states, y)
@@ -239,7 +234,6 @@ print(initial_gamma.node_count())
 #paths -> 81.0
 'INITIAL STATE'
 #nodes -> 34
-
 
 'phils.2.c.ba NON HEURISTIC'
 #nodes -> 33275

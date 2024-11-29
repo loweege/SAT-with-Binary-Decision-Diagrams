@@ -2,13 +2,10 @@ import re
 def parsing(file_path, apprx):
 
     def decimal_to_binary(num):
-
         binary = bin(num)[2:]
         return binary.zfill(apprx)
 
-
     with open(file_path, 'r') as f:
-
         file_content = f.read()
         lines = file_content.strip().splitlines()
 
@@ -16,7 +13,6 @@ def parsing(file_path, apprx):
         raw_destination_states = []
         raw_accepting_states = []
 
-        # Iterate over each line
         for line in lines:
             if '->' in line:  
                 start = line.find(',') + 1
@@ -34,8 +30,6 @@ def parsing(file_path, apprx):
 
         def convert_to_binary(numbers):
             supp = [element for element in numbers if element]
-
-
             longest_state = max(supp_merge, key=len)
             longest_state = re.split(r'[ |\[\]\s|]+', longest_state)
             longest_state = [element for element in longest_state if element]
@@ -74,7 +68,6 @@ def parsing(file_path, apprx):
                     pip += "1011 " * (state_length - len(supp))
                     return pip
 
-        # Process source states
         for portion in raw_source_states:
             numbers = re.split(r'[ |\[\]\s|]+', portion) 
             source_states.append(convert_to_binary(numbers))
@@ -91,10 +84,8 @@ def parsing(file_path, apprx):
         for src, dest in zip(source_states, destination_states):
             transitions_raw.append(f"{src} -> {dest}")
 
-
         def extract_zeros_ones(input_string):
             cleaned_string = input_string.replace('[', '').replace(']', '').replace('|', '').replace('->', '').replace(' ', '')
-            
             zeros_ones_string = ''.join([char for char in cleaned_string if char in ('0', '1')])
             return zeros_ones_string
 
